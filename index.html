@@ -29,6 +29,9 @@
   th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #e2e8ea;vertical-align:top}
   th{color:var(--navy)}
   footer{color:var(--slate);font-size:.9rem;text-align:center;padding:26px 20px}
+  .tag{display:inline-block;font-size:.78rem;font-weight:bold;padding:1px 8px;border-radius:10px;margin-left:6px;vertical-align:1px}
+  .tag.merged{background:#e6edf0;color:var(--navy)}
+  .tag.open{background:#fff3dc;color:#8a5a0c}
 </style>
 </head>
 <body>
@@ -44,6 +47,16 @@
     <a id="download" class="dl"
        href="https://github.com/andr1976/CapeOpenCoolProp-releases/releases/latest">Download latest release</a>
     <div class="ver" id="version">The button always links to the newest release.</div>
+  </div>
+
+  <div class="card" id="cpbuild" hidden>
+    <h2>Bundled CoolProp build</h2>
+    <table>
+      <tr><th style="width:30%">CoolProp</th><td id="cp-version"></td></tr>
+      <tr><th>Base</th><td id="cp-base"></td></tr>
+      <tr><th>Pull requests included</th><td><ul id="cp-prs"></ul></td></tr>
+    </table>
+    <p class="note" id="cp-summary"></p>
   </div>
 
   <div class="card">
@@ -103,6 +116,50 @@
     var v = document.getElementById("version");
     if (v) { v.textContent = "Latest: " + (rel.name || rel.tag_name || "") + (rel.published_at ? "  •  " + rel.published_at.slice(0, 10) : ""); }
   }).catch(function () {});
+})();
+
+// Bundled CoolProp build: coolprop-build.json is published next to this page by the
+// release workflow (verified against the shipped CoolProp.dll). The card stays hidden
+// if the file is missing.
+(function () {
+  function link(href, text) {
+    var a = document.createElement("a"); a.href = href; a.textContent = text; return a;
+  }
+  function code(text) { var c = document.createElement("code"); c.textContent = text; return c; }
+  function sha(href, full) {   // short hash in <code>, linked when a URL is given
+    var c = code(full.slice(0, 8)); if (!href) return c;
+    var a = document.createElement("a"); a.href = href; a.append(c); return a;
+  }
+  fetch("coolprop-build.json", { cache: "no-cache" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (b) {
+      if (!b || !b.gitrevision) return;
+      var v = document.getElementById("cp-version");
+      v.append(b.version + ", git ");
+      v.append(sha(b.commit_url, b.gitrevision));
+      if (b.development_build && b.latest_coolprop_release) {
+        v.append(" — development build, ahead of the latest CoolProp release (" + b.latest_coolprop_release + ")");
+      }
+      var base = b.upstream_base;
+      if (base) {
+        var bt = document.getElementById("cp-base");
+        bt.append("CoolProp master ");
+        bt.append(sha(base.url, base.commit));
+        bt.append(" (" + base.date + ")" + (base.description ? ": " + base.description : ""));
+      }
+      var ul = document.getElementById("cp-prs");
+      (b.pull_requests || []).forEach(function (p) {
+        var li = document.createElement("li");
+        li.append(link(p.url, "#" + p.number), " ", p.title);
+        var t = document.createElement("span");
+        t.className = "tag " + (p.state === "open" ? "open" : "merged");
+        t.textContent = p.state;
+        li.append(t);
+        ul.append(li);
+      });
+      if (b.summary) document.getElementById("cp-summary").textContent = b.summary;
+      document.getElementById("cpbuild").hidden = false;
+    }).catch(function () {});
 })();
 </script>
 </body>
